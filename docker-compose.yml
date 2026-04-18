@@ -1,7 +1,7 @@
 services:
   mongo:
     image: mongo:7
-    container_name: beastbot-mongo
+    container_name: beastcord-mongo
     restart: unless-stopped
     ports:
       - "${MONGO_PORT:-27017}:27017"
@@ -19,7 +19,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: beastbot-bot
+    container_name: beastcord-bot
     restart: unless-stopped
     depends_on:
       mongo:
@@ -28,8 +28,8 @@ services:
       - path: .env
         required: false
     environment:
-      MONGO_URI: ${MONGO_URI:-mongodb://mongo:27017/beastbot}
-      MONGO_DB_NAME: ${MONGO_DB_NAME:-beastbot}
+      MONGO_URI: ${MONGO_URI:-mongodb://mongo:27017/beastcord}
+      MONGO_DB_NAME: ${MONGO_DB_NAME:-beastcord}
       BOT_PREFIX: ${BOT_PREFIX:-!}
     volumes:
       - ./:/app

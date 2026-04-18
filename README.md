@@ -1,4 +1,4 @@
-# BeastBot
+# BeastcordBot
 
 A basic `discord.py` bot project with Docker Compose and MongoDB.
 
