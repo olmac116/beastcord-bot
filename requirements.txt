@@ -2,3 +2,5 @@ discord.py
 pymongo
 colorama
 python-dotenv
+Pillow
+aiohttp

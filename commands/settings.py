@@ -7,6 +7,8 @@ from pymongo import AsyncMongoClient as MongoClient
 from lib.logging import log
 from lib.embeds import errorEmbed, successEmbed, generalEmbed
 from lib.envLoader import env
+from lib.settingsLib import updateSettings
+
 
 group = app_commands.Group(name="settings", description="Bot Server settings")
 
@@ -25,21 +27,6 @@ async def checkOwner(interaction: discord.Interaction):
     else:
         await interaction.response.send_message(embed=errorEmbed(title="Insufficient Permissions", description="Only administrators and the server owner has access to this command!"))
         return False
-    
-async def updateSettings(guildId: int, key: str, data: any):
-    if dbEnabled is False or dbEnabled is None:
-        log(guild_id="GLOBAL", message="Cannot write to database if one isn't connected!")
-        return False, "No Database"
-    try:
-        await server_settings_collection.update_one(
-            {"guildId": int(guildId)},
-            {"$set": {key: data}},
-            upsert=True
-        )
-        return True, "Success"
-    except Exception as e:
-        log(guild_id=guildId, message=f"Failed to update server settings - {e}")
-        return False, e
     
 async def sendSaveError(response: discord.Message, error: str):
    await response.edit(content=None, embed=errorEmbed(title="Settings", description=f"We were unable to save your server settings.\n\nError: {str(error) or "None"}"), view=None)
@@ -185,6 +172,60 @@ async def set_logs_channel(interaction: discord.Interaction, channel: discord.Te
 
             # if the save was a success
             await response.edit(content=None, embed=successEmbed(title="Settings", description=f"Your selected log channel was saved! It may take up to 5 minutes to be applied.\n\n**You selected: {channel.mention}**"), view=None)
+
+
+@group.command(name="welcome", description=f"Set up your welcome message channel.")
+@app_commands.describe(channel="The channel where we will send welcome messages to")
+async def set_welcome_channel(interaction: discord.Interaction, channel: discord.TextChannel):
+    if await checkOwner(interaction=interaction):
+        view = Confirm()
+        await interaction.response.send_message(embed=generalEmbed(title="Settings", description=f"This will update where your welcome messages are sent.\n\nAre you sure this is the channel you want to select?\n***You selected: {channel.mention}***"), view=view, ephemeral=True)
+
+        await view.wait() # wait for their response
+
+        response = await interaction.original_response()
+        
+        readyToSave = await processInteraction(response=response, view=view)
+
+        if readyToSave:
+
+            # attempt to update
+            success, error = await updateSettings(guildId=interaction.guild_id, key="welcomeChannel", data=int(channel.id))
+
+            # if theres an issue/error
+            if not success:
+                await sendSaveError(response=response, error=error)
+                return
+
+            # if the save was a success
+            await response.edit(content=None, embed=successEmbed(title="Settings", description=f"Your selected welcome channel was saved! It may take up to 5 minutes to be applied.\n\n**You selected: {channel.mention}**"), view=None)
+
+
+@group.command(name="leave", description=f"Set up your leave message channel.")
+@app_commands.describe(channel="The channel where we will send leave messages to")
+async def set_leave_channel(interaction: discord.Interaction, channel: discord.TextChannel):
+    if await checkOwner(interaction=interaction):
+        view = Confirm()
+        await interaction.response.send_message(embed=generalEmbed(title="Settings", description=f"This will update where your leave messages are sent.\n\nAre you sure this is the channel you want to select?\n***You selected: {channel.mention}***"), view=view, ephemeral=True)
+
+        await view.wait() # wait for their response
+
+        response = await interaction.original_response()
+        
+        readyToSave = await processInteraction(response=response, view=view)
+
+        if readyToSave:
+
+            # attempt to update
+            success, error = await updateSettings(guildId=interaction.guild_id, key="leaveChannel", data=int(channel.id))
+
+            # if theres an issue/error
+            if not success:
+                await sendSaveError(response=response, error=error)
+                return
+
+            # if the save was a success
+            await response.edit(content=None, embed=successEmbed(title="Settings", description=f"Your selected leave channel was saved! It may take up to 5 minutes to be applied.\n\n**You selected: {channel.mention}**"), view=None)
 
 
 @group.command(name="mod-mail", description=f"Set up your mod mail channel")

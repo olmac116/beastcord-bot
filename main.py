@@ -6,6 +6,7 @@ import os
 
 from lib.logging import log
 from lib.envLoader import env
+from lib.welcome import send_welcome_message
 
 intents = discord.Intents.all()
 bot = commands.Bot(command_prefix="!", intents=intents)
@@ -39,7 +40,13 @@ async def cycle_status():
     if not statuses:
         return
     
+    formats = {
+        "{member-count}": str(sum(len(guild.members) for guild in bot.guilds)),
+    }
+    
     status = statuses[current_status_index % len(statuses)]
+    for placeholder, value in formats.items():
+        status = status.replace(placeholder, value)
     await bot.change_presence(activity=discord.CustomActivity(name=f"/help | {status}"), status=discord.Status.online)
     current_status_index += 1
 
@@ -71,6 +78,33 @@ async def on_ready():
     
     for command in tree.get_commands(guild=guild_obj):
         print(f"Registered command: /{command.name}")
+
+
+@bot.event
+async def on_member_join(member: discord.Member):
+    # print(f"[JOIN] {member} joined {member.guild.name}")
+    try:
+        await send_welcome_message(member)
+    except Exception as e:
+        print(f"Failed to send welcome card: {e}")
+
+    # # Example: send a welcome message to the server's system channel if available.
+    # if member.guild.system_channel:
+    #     await member.guild.system_channel.send(
+    #         f"Welcome {member.mention}!"
+    #     )
+
+
+@bot.event
+async def on_member_remove(member: discord.Member):
+    # print(f"[LEAVE] {member} left {member.guild.name}")
+    
+    # Example: send a farewell message to the server's system channel if available.
+    if member.guild.system_channel:
+        await member.guild.system_channel.send(
+            f"*{member.mention} left the server.*"
+        )
+
 
 
 for filename in os.listdir("./commands"):
