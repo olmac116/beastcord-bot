@@ -41,7 +41,7 @@ async def cycle_status():
         return
     
     formats = {
-        "{member-count}": str(sum(len(guild.members) for guild in bot.guilds)),
+        "{member-count}": f"{sum(len(guild.members) for guild in bot.guilds):,}",
     }
     
     status = statuses[current_status_index % len(statuses)]
