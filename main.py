@@ -6,6 +6,7 @@ import os
 
 from lib.logging import log
 from lib.envLoader import env
+from lib.messageResponder import check_and_respond
 from lib.welcome import send_welcome_message
 
 intents = discord.Intents.all()
@@ -26,12 +27,10 @@ def load_statuses():
             with open("static/statuses.txt", "r") as f:
                 statuses = [line.strip() for line in f if line.strip()]
             if statuses:
-                print(f"Loaded {len(statuses)} status(es)")
-            return True
-        return False
+                return True, len(statuses), None
+        return False, None, None
     except Exception as e:
-        print(f"Error loading statuses: {e}")
-        return False
+        return False, None, str(e)
 
 @tasks.loop(minutes=5)
 async def cycle_status():
@@ -52,10 +51,16 @@ async def cycle_status():
 
 @bot.event
 async def on_ready():
-    print(f"Logged in as {bot.user}")
+    log("GLOBAL", f"Logged in as {bot.user}")
     
     # Load statuses from file
-    if not load_statuses():
+    statuses_loaded, status_count, status_error = load_statuses()
+    if statuses_loaded and status_count is not None:
+        log("GLOBAL", f"Loaded {status_count} status(es)")
+    elif status_error:
+        log("GLOBAL", f"Error loading statuses: {status_error}")
+
+    if not statuses_loaded:
         # Fallback to default status if no file exists
         await bot.change_presence(activity=discord.CustomActivity(name="Starting up.."), status=discord.Status.do_not_disturb)
     else:
@@ -69,15 +74,15 @@ async def on_ready():
     try:
         if guild_obj:
             await tree.sync(guild=guild_obj)
-            print(f"Commands synced to guild {mainguildid}")
+            log("GLOBAL", f"Commands synced to guild {mainguildid}")
         else:
             await tree.sync()
-            print("Commands synced globally")
+            log("GLOBAL", "Commands synced globally")
     except Exception as e:
-        print("Error syncing commands:", e)
+        log("GLOBAL", f"Error syncing commands: {e}")
     
     for command in tree.get_commands(guild=guild_obj):
-        print(f"Registered command: /{command.name}")
+        log("GLOBAL", f"Registered command: /{command.name}")
 
 
 @bot.event
@@ -86,7 +91,7 @@ async def on_member_join(member: discord.Member):
     try:
         await send_welcome_message(member)
     except Exception as e:
-        print(f"Failed to send welcome card: {e}")
+        log(member.guild.id, f"Failed to send welcome card: {e}")
 
     # # Example: send a welcome message to the server's system channel if available.
     # if member.guild.system_channel:
@@ -104,6 +109,15 @@ async def on_member_remove(member: discord.Member):
         await member.guild.system_channel.send(
             f"*{member.mention} left the server.*"
         )
+
+
+@bot.event
+async def on_message(message: discord.Message):
+    if message.author.bot:
+        return
+
+    await check_and_respond(message)
+    await bot.process_commands(message)
 
 
 

@@ -15,7 +15,7 @@ async def moderation(interaction: discord.Interaction):
 @group.command(name="entertainment", description="Help with entertainment commands")
 async def entertainment(interaction: discord.Interaction):
     await interaction.response.send_message("MESSAGE")
-    await log(interaction.guild_id, "Testing!!")
+    log(interaction.guild_id, "Testing!!")
 
 def setup(bot_tree, guild=None):
     if guild:

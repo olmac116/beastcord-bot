@@ -1,11 +1,19 @@
+import asyncio
+import datetime
+import logging as py_logging
+
 import discord
 from pymongo import AsyncMongoClient as MongoClient
-import datetime
-from colorama import Fore, init
 
 from lib.envLoader import env
 
-init()
+logger = py_logging.getLogger("beastcord")
+if not logger.handlers:
+    handler = py_logging.StreamHandler()
+    handler.setFormatter(py_logging.Formatter("%(asctime)s %(levelname)s %(message)s"))
+    logger.addHandler(handler)
+    logger.setLevel(py_logging.INFO)
+    logger.propagate = False
 
 loggingEnabled = env("DB_URI", None) is not None
 
@@ -17,9 +25,17 @@ if loggingEnabled:
 
 
 async def log_message(guild_id: int, client: discord.Client, message: str, type: str):
-    channel = client.get_channel(
-        server_settings_collection.find_one({"guild_id": guild_id})["log_channel_id"]
-    )
+    settings = await server_settings_collection.find_one({"guild_id": guild_id})
+    if not settings:
+        logger.warning("No server settings found for guild %s", guild_id)
+        return
+
+    channel_id = settings.get("log_channel_id")
+    if not channel_id:
+        logger.warning("No log channel configured for guild %s", guild_id)
+        return
+
+    channel = client.get_channel(channel_id)
     types = {
         "cmd": "Command Log",
         "msg": "Message Log",
@@ -36,7 +52,7 @@ async def log_message(guild_id: int, client: discord.Client, message: str, type:
         await channel.send(embed=embed)
 
 
-async def log(guild_id: int, message: str):
+async def _persist_log(guild_id: int | str, message: str):
     if loggingEnabled:
         await logs_collection.insert_one(
             {
@@ -46,4 +62,14 @@ async def log(guild_id: int, message: str):
             }
         )
 
-    print(f"{Fore.RED}[LOG]{Fore.RESET} Guild id: {Fore.GREEN}{guild_id}{Fore.RESET} inserted a new log: {Fore.BLUE}{message}{Fore.RESET}")
+
+def log(guild_id: int | str, message: str):
+    logger.info("Guild id: %s inserted a new log: %s", guild_id, message)
+
+    if not loggingEnabled:
+        return
+
+    try:
+        asyncio.get_running_loop().create_task(_persist_log(guild_id, message))
+    except RuntimeError:
+        asyncio.run(_persist_log(guild_id, message))

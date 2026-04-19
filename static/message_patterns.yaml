@@ -1,0 +1,3 @@
+patterns:
+  - pattern: "\\b(scene packs?|scp|scenepacks?)\\b"
+    response: "Looking for scene packs for BEASTARS? Check out <https://rentry.co/beastarsmasterlist>, a master list containing scene packs for every BEASTARS character listed on <https://beastars.fandom.com>\n-# Scene pack list by @50k.aep"
