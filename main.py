@@ -53,6 +53,8 @@ async def cycle_status():
 async def on_ready():
     log("GLOBAL", f"Logged in as {bot.user}")
     
+    await bot.change_presence(activity=discord.CustomActivity(name="Starting up.."), status=discord.Status.do_not_disturb)
+    
     # Load statuses from file
     statuses_loaded, status_count, status_error = load_statuses()
     if statuses_loaded and status_count is not None:
@@ -60,13 +62,13 @@ async def on_ready():
     elif status_error:
         log("GLOBAL", f"Error loading statuses: {status_error}")
 
-    if not statuses_loaded:
-        # Fallback to default status if no file exists
-        await bot.change_presence(activity=discord.CustomActivity(name="Starting up.."), status=discord.Status.do_not_disturb)
-    else:
+    if statuses_loaded:
         # Start the status cycling task
         if not cycle_status.is_running():
             cycle_status.start()
+    else:
+        log("GLOBAL", "No statuses loaded, skipping status cycling.")
+        await bot.change_presence(activity=discord.CustomActivity(name="/help"), status=discord.Status.online)
 
     if env("DB_URI", None) is None:
         log(guild_id="GLOBAL", message="No DB_URI set in environment variables. Some features may be disabled and issues may occur.")
