@@ -7,6 +7,7 @@ from pymongo import AsyncMongoClient as MongoClient
 
 from lib.envLoader import env
 from lib.embeds import errorEmbed, generalEmbed, successEmbed
+from lib.settingsLib import getSettings
 
 dbEnabled = env("DB_URI", None) is not None
 
@@ -265,7 +266,7 @@ def _ensure_listener_registered(client: discord.Client):
 async def modmail(
     interaction: discord.Interaction,
     message: str,
-    anonymous: bool = True,
+    anonymous: bool = False,
     allow_replies: bool = True,
 ):
     if interaction.guild is None:
@@ -322,6 +323,19 @@ async def modmail(
             ephemeral=True,
         )
         return
+    
+    if anonymous:
+        settings = getSettings(interaction.guild.id)
+        if settings.get("allowAnonymousModMail", False):
+            await interaction.response.send_message(
+                embed=errorEmbed(
+                    title="Modmail",
+                    description="This server does not allow anonymous modmail tickets. Please uncheck the 'Anonymous' option and try again.",
+                ),
+                ephemeral=True,
+            )
+        return
+            
 
     ticket_embed = generalEmbed(
         title="New Modmail Ticket",
@@ -330,6 +344,7 @@ async def modmail(
     )
     ticket_embed.add_field(name="Anonymous", value="Yes" if anonymous else "No", inline=True)
     ticket_embed.add_field(name="Replies Enabled", value="Yes" if allow_replies else "No", inline=True)
+    
     if not anonymous:
         ticket_embed.add_field(name="User ID", value=str(interaction.user.id), inline=True)
 

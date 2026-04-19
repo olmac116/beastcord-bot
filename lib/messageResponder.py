@@ -5,6 +5,7 @@ from typing import Any
 
 import discord
 from lib.logging import logger
+from lib.settingsLib import getSettings
 
 PATTERN_CONFIG_PATH = Path(__file__).resolve().parent.parent / "static" / "message_patterns.yaml"
 
@@ -51,6 +52,23 @@ PATTERN_RESPONSES = _load_pattern_responses()
 
 
 async def check_and_respond(message: discord.Message) -> bool:
+    guild = message.guild
+    if not guild:
+        return False
+    
+    success, settings = await getSettings(guild.id)
+    if not success:
+        logger.error("Failed to load settings for guild %s: %s", guild.id, settings)
+        return False
+
+    if not isinstance(settings, dict):
+        logger.warning("Unexpected settings type for guild %s: %s", guild.id, type(settings).__name__)
+        return False
+
+    auto_responder_channel_id = settings.get("autoResponderChannel", None)
+    if auto_responder_channel_id and message.channel.id != auto_responder_channel_id:
+        return False
+    
     content = message.content or ""
 
     for pattern, response_template in PATTERN_RESPONSES:

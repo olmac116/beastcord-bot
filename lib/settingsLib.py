@@ -32,6 +32,26 @@ async def updateSettings(guildId: int, key: str, data: any):
     except Exception as e:
         log(guild_id=guildId, message=f"Failed to update server settings - {e}")
         return False, e
+
+
+async def resetSettings(guildId: int, key: str | None = None):
+    if dbEnabled is False or dbEnabled is None:
+        log(guild_id="GLOBAL", message="Cannot write to database if one isn't connected!")
+        return False, "No Database"
+
+    try:
+        if key is None:
+            await server_settings_collection.delete_one({"guildId": int(guildId)})
+        else:
+            await server_settings_collection.update_one(
+                {"guildId": int(guildId)},
+                {"$unset": {key: ""}},
+                upsert=True,
+            )
+        return True, "Success"
+    except Exception as e:
+        log(guild_id=guildId, message=f"Failed to reset server settings - {e}")
+        return False, e
     
 async def getSettings(guildId: int):
     if dbEnabled is False or dbEnabled is None:

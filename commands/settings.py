@@ -1,5 +1,6 @@
 import discord
 from discord import app_commands
+from discord import channel
 from discord.ui import View, RoleSelect
 
 from pymongo import AsyncMongoClient as MongoClient
@@ -7,10 +8,22 @@ from pymongo import AsyncMongoClient as MongoClient
 from lib.logging import log
 from lib.embeds import errorEmbed, successEmbed, generalEmbed
 from lib.envLoader import env
-from lib.settingsLib import updateSettings
+from lib.settingsLib import resetSettings as resetServerSettings, updateSettings
 
 
 group = app_commands.Group(name="settings", description="Bot Server settings")
+
+RESET_SETTING_CHOICES = [
+    app_commands.Choice(name="Logs Channel", value="logsChannel"),
+    app_commands.Choice(name="Registered Moderator Roles", value="registeredModerators"),
+    app_commands.Choice(name="Auto-Responder Channel", value="autoResponderChannel"),
+    app_commands.Choice(name="Welcome Channel", value="welcomeChannel"),
+    app_commands.Choice(name="Leave Channel", value="leaveChannel"),
+    app_commands.Choice(name="Mod Mail Channel", value="modMailChannel"),
+    app_commands.Choice(name="Allow Anonymous Mod Mail", value="allowAnonymousModMail"),
+]
+
+RESET_SETTING_LABELS = {choice.value: choice.name for choice in RESET_SETTING_CHOICES}
 
 dbEnabled = env("DB_URI", None) is not None
 
@@ -29,8 +42,8 @@ async def checkOwner(interaction: discord.Interaction):
         return False
     
 async def sendSaveError(response: discord.Message, error: str):
-   await response.edit(content=None, embed=errorEmbed(title="Settings", description=f"We were unable to save your server settings.\n\nError: {str(error) or "None"}"), view=None)
-   return
+    await response.edit(content=None, embed=errorEmbed(title="Settings", description=f"We were unable to save your server settings.\n\nError: {str(error) or 'None'}"), view=None)
+    return
 
 
 async def processInteraction(response: discord.Message, view: View):
@@ -136,15 +149,50 @@ async def view_settings(interaction: discord.Interaction):
         logs_channel_mention = f"<#{logs_channel_id}>" if logs_channel_id else "Unset set"
         registered_mods_mentions = ", ".join([f"<@&{role_id}>" for role_id in registered_mods_ids]) if registered_mods_ids else "Unset set"
 
-        embed_description = f"**Logs Channel:** {logs_channel_mention}\n**Registered Moderator Roles:** {registered_mods_mentions}"
-        await interaction.response.send_message(embed=generalEmbed(title="Current Server Settings", description=embed_description), ephemeral=True)
+        embed = generalEmbed(title=f"Current Server Settings for {interaction.guild.name}", description="These are your current server settings. To change these settings, use the other subcommands under `/settings`")
+        embed.add_field(name="Logs Channel", value=logs_channel_mention, inline=False)
+        embed.add_field(name="Registered Moderator Roles", value=registered_mods_mentions, inline=False)
+        embed.add_field(name="Auto-Responder Channel", value=f"<#{settings.get('autoResponderChannel')}>" if settings.get('autoResponderChannel') else "Unset", inline=False)
+        embed.add_field(name="Welcome Channel", value=f"<#{settings.get('welcomeChannel')}>" if settings.get('welcomeChannel') else "Unset", inline=False)
+        embed.add_field(name="Leave Channel", value=f"<#{settings.get('leaveChannel')}>" if settings.get('leaveChannel') else "Unset", inline=False)
+        embed.add_field(name="Mod Mail Channel", value=f"<#{settings.get('modMailChannel')}>" if settings.get('modMailChannel') else "Unset", inline=False)
+        embed.add_field(name="Allow Anonymous Mod Mail", value=str(settings.get('allowAnonymousModMail', False)), inline=False)
+
+        await interaction.response.send_message(embed=embed, ephemeral=True)
 
 # set moderators command
-@group.command(name="moderators", description="Define your moderators!")
+@group.command(name="moderators", description="Define your moderators.")
 async def set_moderators(interaction: discord.Interaction):
     if await checkOwner(interaction=interaction):
         view = MultiRoleSelectView()
         await interaction.response.send_message(embed=generalEmbed(title="Settings", description="Select your moderator roles using the dropdown below this message.\n\n***Note: This will overwrite your current selected moderator settings!***"), view=view, ephemeral=True)
+
+
+@group.command(name="auto-responder", description=f"Set up which channel the auto-responder can use.")
+@app_commands.describe(channel="The channel which the auto-responder will work in")
+async def set_auto_responder_channel(interaction: discord.Interaction, channel: discord.TextChannel):
+    if await checkOwner(interaction=interaction):
+        view = Confirm()
+        await interaction.response.send_message(embed=generalEmbed(title="Settings", description=f"This will update where the auto-responder will work.\n\nAre you sure this is the channel you want to select?\n***You selected: {channel.mention}***"), view=view, ephemeral=True)
+
+        await view.wait() # wait for their response
+
+        response = await interaction.original_response()
+        
+        readyToSave = await processInteraction(response=response, view=view)
+
+        if readyToSave:
+
+            # attempt to update
+            success, error = await updateSettings(guildId=interaction.guild_id, key="autoResponderChannel", data=int(channel.id))
+
+            # if theres an issue/error
+            if not success:
+                await sendSaveError(response=response, error=error)
+                return
+
+            # if the save was a success
+            await response.edit(content=None, embed=successEmbed(title="Settings", description=f"Your selected auto-responder channel was saved! It may take up to 5 minutes to be applied.\n\n**You selected: {channel.mention}**"), view=None)
 
 
 @group.command(name="logs", description=f"Set up your logs channel.")
@@ -253,6 +301,81 @@ async def set_mod_mail_channel(interaction: discord.Interaction, channel: discor
 
             # if the save was a success
             await response.edit(content=None, embed=successEmbed(title="Settings", description=f"Your selected mod mail channel was saved! It may take up to 5 minutes to be applied.\n\n**You selected: {channel.mention}**"), view=None)
+
+
+@group.command(name="allow-anonymous-modmail", description=f"Set whether mod mail messages can be sent anonymously or not.")
+@app_commands.describe(allow_anonymous="Whether to allow anonymous mod mail messages")
+async def set_allow_anonymous_modmail(interaction: discord.Interaction, allow_anonymous: bool):
+    if await checkOwner(interaction=interaction):
+        view = Confirm()
+        await interaction.response.send_message(embed=generalEmbed(title="Settings", description=f"This will update the anonymous mod mail setting.\n\nAre you sure you want to {('allow' if allow_anonymous else 'disallow')} anonymous mod mail messages?"), view=view, ephemeral=True)
+
+        await view.wait() # wait for their response
+
+        response = await interaction.original_response()
+        
+        readyToSave = await processInteraction(response=response, view=view)
+
+        if readyToSave:
+
+            # attempt to update
+            success, error = await updateSettings(guildId=interaction.guild_id, key="allowAnonymousModMail", data=bool(allow_anonymous))
+
+            # if theres an issue/error
+            if not success:
+                await sendSaveError(response=response, error=error)
+                return
+
+            # if the save was a success
+            await response.edit(content=None, embed=successEmbed(title="Settings", description=f"Your anonymous mod mail setting was saved! It may take up to 5 minutes to be applied.\n\n**You selected: {allow_anonymous}**"), view=None)
+
+
+@group.command(name="reset", description="Reset all bot settings or a specific setting.")
+@app_commands.describe(setting="Leave empty to reset all server settings")
+@app_commands.choices(setting=RESET_SETTING_CHOICES)
+async def reset_settings(interaction: discord.Interaction, setting: str | None = None):
+    if await checkOwner(interaction=interaction):
+        setting_label = "all server settings" if setting is None else f"the {RESET_SETTING_LABELS.get(setting, setting)} setting"
+        view = Confirm()
+        await interaction.response.send_message(
+            embed=errorEmbed(
+                title="Settings",
+                description=f"This will reset {setting_label}.\n\nAre you sure you want to continue?",
+            ),
+            view=view,
+            ephemeral=True,
+        )
+
+        await view.wait()
+
+        response = await interaction.original_response()
+        readyToSave = await processInteraction(response=response, view=view)
+
+        if readyToSave:
+            success, error = await resetServerSettings(guildId=interaction.guild_id, key=setting)
+
+            if not success:
+                await sendSaveError(response=response, error=error)
+                return
+
+            if setting is None:
+                await response.edit(
+                    content=None,
+                    embed=successEmbed(
+                        title="Settings",
+                        description="All server settings were reset successfully. It may take up to 5 minutes to be fully applied.",
+                    ),
+                    view=None,
+                )
+            else:
+                await response.edit(
+                    content=None,
+                    embed=successEmbed(
+                        title="Settings",
+                        description=f"The {setting_label} was reset successfully. It may take up to 5 minutes to be fully applied.",
+                    ),
+                    view=None,
+                )
 
 
 def setup(bot_tree, guild=None):
