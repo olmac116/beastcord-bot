@@ -4,10 +4,10 @@ from discord import app_commands
 from lib.welcome import send_welcome_message
 
 
-group = app_commands.Group(name="welcome", description="Welcome message tools")
+group = app_commands.Group(name="tests", description="Perform a manual test of a bot function")
 
 
-@group.command(name="test", description="Send a test welcome message for yourself")
+@group.command(name="welcome", description="Send a test welcome message for yourself")
 async def test_welcome(interaction: discord.Interaction):
     if interaction.guild is None or not isinstance(interaction.user, discord.Member):
         await interaction.response.send_message("This command can only be used inside a server.", ephemeral=True)

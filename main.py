@@ -122,6 +122,9 @@ if __name__ == "__main__":
     
     for filename in os.listdir("./commands"):
         if filename.endswith(".py") and filename != "__init__.py":
+            if env("TESTING", "false").lower() == "true" and not filename.startswith("tests"):
+                continue
+            
             module_name = f"commands.{filename[:-3]}"
             module = importlib.import_module(module_name)
             if hasattr(module, "setup"):
