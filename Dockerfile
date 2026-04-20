@@ -11,6 +11,5 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY main.py ./main.py
 COPY commands ./commands
 COPY lib ./lib
-COPY LICENSE ./LICENSE
 
 CMD ["python", "main.py"]

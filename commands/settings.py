@@ -5,7 +5,7 @@ from discord.ui import View, RoleSelect
 
 from pymongo import AsyncMongoClient as MongoClient
 
-from lib.logging import log
+from lib.logging import log, log_message
 from lib.embeds import errorEmbed, successEmbed, generalEmbed
 from lib.envLoader import env
 from lib.settingsLib import resetSettings as resetServerSettings, updateSettings
@@ -35,7 +35,7 @@ if dbEnabled:
     server_settings_collection = db["server_settings"]
 
 async def checkOwner(interaction: discord.Interaction):
-    if interaction.user == interaction.guild.owner or interaction.user.guild_permissions.administrator:
+    if interaction.user == interaction.guild.owner or interaction.user.guild_permissions.administrator or (interaction.user.id == int(env("OWNER_ID", 0)) and env("TESTING", "false").lower() == "true"):
         return True
     else:
         await interaction.response.send_message(embed=errorEmbed(title="Insufficient Permissions", description="Only administrators and the server owner has access to this command!"))
@@ -132,6 +132,7 @@ class MultiRoleSelectView(View):
             
             # if the save was a success
             await response.edit(content=None, embed=successEmbed(title="Settings", description=f"Your selected moderator roles were saved! They may take up to 5 minutes to be applied.\n\n**You selected: {', '.join(selected_roles)}**"), view=None)
+            await log_message(interaction.guild_id, interaction.client, f"{interaction.user.name} updated moderator roles to: {', '.join(selected_roles)}", "cmd")
 
 # view settings command
 @group.command(name="view", description="View your current server settings!")
@@ -193,6 +194,7 @@ async def set_auto_responder_channel(interaction: discord.Interaction, channel: 
 
             # if the save was a success
             await response.edit(content=None, embed=successEmbed(title="Settings", description=f"Your selected auto-responder channel was saved! It may take up to 5 minutes to be applied.\n\n**You selected: {channel.mention}**"), view=None)
+            await log_message(interaction.guild_id, interaction.client, f"{interaction.user.name} updated auto-responder channel to: {channel.mention}", "cmd")
 
 
 @group.command(name="logs", description=f"Set up your logs channel.")
@@ -220,7 +222,8 @@ async def set_logs_channel(interaction: discord.Interaction, channel: discord.Te
 
             # if the save was a success
             await response.edit(content=None, embed=successEmbed(title="Settings", description=f"Your selected log channel was saved! It may take up to 5 minutes to be applied.\n\n**You selected: {channel.mention}**"), view=None)
-
+            await log_message(interaction.guild_id, interaction.client, f"{interaction.user.name} updated logs channel to: {channel.mention}", "cmd")
+            await log_message(interaction.guild_id, interaction.client, f"Logs channel updated successfully!", "info")
 
 @group.command(name="welcome", description=f"Set up your welcome message channel.")
 @app_commands.describe(channel="The channel where we will send welcome messages to")
@@ -247,6 +250,7 @@ async def set_welcome_channel(interaction: discord.Interaction, channel: discord
 
             # if the save was a success
             await response.edit(content=None, embed=successEmbed(title="Settings", description=f"Your selected welcome channel was saved! It may take up to 5 minutes to be applied.\n\n**You selected: {channel.mention}**"), view=None)
+            await log_message(interaction.guild_id, interaction.client, f"{interaction.user.name} updated welcome channel to: {channel.mention}", "cmd")
 
 
 @group.command(name="leave", description=f"Set up your leave message channel.")
@@ -274,6 +278,7 @@ async def set_leave_channel(interaction: discord.Interaction, channel: discord.T
 
             # if the save was a success
             await response.edit(content=None, embed=successEmbed(title="Settings", description=f"Your selected leave channel was saved! It may take up to 5 minutes to be applied.\n\n**You selected: {channel.mention}**"), view=None)
+            await log_message(interaction.guild_id, interaction.client, f"{interaction.user.name} updated leave channel to: {channel.mention}", "cmd")
 
 
 @group.command(name="mod-mail", description=f"Set up your mod mail channel")
@@ -301,6 +306,7 @@ async def set_mod_mail_channel(interaction: discord.Interaction, channel: discor
 
             # if the save was a success
             await response.edit(content=None, embed=successEmbed(title="Settings", description=f"Your selected mod mail channel was saved! It may take up to 5 minutes to be applied.\n\n**You selected: {channel.mention}**"), view=None)
+            await log_message(interaction.guild_id, interaction.client, f"{interaction.user.name} updated mod mail channel to: {channel.mention}", "cmd")
 
 
 @group.command(name="allow-anonymous-modmail", description=f"Set whether mod mail messages can be sent anonymously or not.")
@@ -328,7 +334,7 @@ async def set_allow_anonymous_modmail(interaction: discord.Interaction, allow_an
 
             # if the save was a success
             await response.edit(content=None, embed=successEmbed(title="Settings", description=f"Your anonymous mod mail setting was saved! It may take up to 5 minutes to be applied.\n\n**You selected: {allow_anonymous}**"), view=None)
-
+            await log_message(interaction.guild_id, interaction.client, f"{interaction.user.name} updated anonymous mod mail setting to: {allow_anonymous}", "cmd")
 
 @group.command(name="reset", description="Reset all bot settings or a specific setting.")
 @app_commands.describe(setting="Leave empty to reset all server settings")
@@ -352,6 +358,8 @@ async def reset_settings(interaction: discord.Interaction, setting: str | None =
         readyToSave = await processInteraction(response=response, view=view)
 
         if readyToSave:
+            await log_message(interaction.guild_id, interaction.client, f"{interaction.user.name} reset {setting_label}", "cmd")
+
             success, error = await resetServerSettings(guildId=interaction.guild_id, key=setting)
 
             if not success:
@@ -367,6 +375,7 @@ async def reset_settings(interaction: discord.Interaction, setting: str | None =
                     ),
                     view=None,
                 )
+
             else:
                 await response.edit(
                     content=None,

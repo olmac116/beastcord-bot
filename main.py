@@ -47,7 +47,7 @@ async def cycle_status():
     status = statuses[current_status_index % len(statuses)]
     for placeholder, value in formats.items():
         status = status.replace(placeholder, value)
-    await bot.change_presence(activity=discord.CustomActivity(name=f"/help | {status}"), status=discord.Status.online)
+    await bot.change_presence(activity=discord.CustomActivity(name=f"{'' if not testing_enabled else 'test mode '}/help | {status}"), status=discord.Status.online)
     current_status_index += 1
 
 # when the bot logs in
@@ -71,7 +71,7 @@ async def on_ready():
             cycle_status.start()
     else:
         log("GLOBAL", "No statuses loaded, skipping status cycling.")
-        await bot.change_presence(activity=discord.CustomActivity(name="/help"), status=discord.Status.online)
+        await bot.change_presence(activity=discord.CustomActivity(name=f"{'' if not testing_enabled else 'test mode '}/help"), status=discord.Status.online)
 
     # if the db is not set up, log a warning that some features may not work
     if env("DB_URI", None) is None:
@@ -119,10 +119,15 @@ async def on_message(message: discord.Message):
 # when the script is ran from the command line, load all commands from the commands folder and start the bot
 if __name__ == "__main__":
     log("GLOBAL", f"Initializing commands...")
+    testing_value = env("TESTING", False)
+    testing_enabled = testing_value if isinstance(testing_value, bool) else str(testing_value).lower() == "true"
     
     for filename in os.listdir("./commands"):
         if filename.endswith(".py") and filename != "__init__.py":
-            if env("TESTING", "false").lower() == "true" and not filename.startswith("tests"):
+            if not testing_enabled and filename.startswith("tests"):
+                continue
+            
+            if filename.startswith("example"):
                 continue
             
             module_name = f"commands.{filename[:-3]}"
