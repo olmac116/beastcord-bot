@@ -66,7 +66,7 @@ def _fit_bold_font(draw: ImageDraw.ImageDraw, text: str, start_size: int, min_si
         font = _load_font(size, bold=True)
         if draw.textlength(text, font=font) <= max_width:
             return font
-        size -= 1  # ⬅ shrink slower (was 2)
+        size -= 1
     return _load_font(min_size, bold=True)
 
 

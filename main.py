@@ -32,6 +32,7 @@ def load_statuses():
     except Exception as e:
         return False, None, str(e)
 
+# status loop
 @tasks.loop(minutes=5)
 async def cycle_status():
     global current_status_index, statuses
@@ -49,13 +50,15 @@ async def cycle_status():
     await bot.change_presence(activity=discord.CustomActivity(name=f"/help | {status}"), status=discord.Status.online)
     current_status_index += 1
 
+# when the bot logs in
 @bot.event
 async def on_ready():
     log("GLOBAL", f"Logged in as {bot.user}")
     
+    # set initial presence while loading statuses
     await bot.change_presence(activity=discord.CustomActivity(name="Starting up.."), status=discord.Status.do_not_disturb)
     
-    # Load statuses from file
+    # load statuses from the file
     statuses_loaded, status_count, status_error = load_statuses()
     if statuses_loaded and status_count is not None:
         log("GLOBAL", f"Loaded {status_count} status(es)")
@@ -63,16 +66,18 @@ async def on_ready():
         log("GLOBAL", f"Error loading statuses: {status_error}")
 
     if statuses_loaded:
-        # Start the status cycling task
+        # start the status cycling task
         if not cycle_status.is_running():
             cycle_status.start()
     else:
         log("GLOBAL", "No statuses loaded, skipping status cycling.")
         await bot.change_presence(activity=discord.CustomActivity(name="/help"), status=discord.Status.online)
 
+    # if the db is not set up, log a warning that some features may not work
     if env("DB_URI", None) is None:
         log(guild_id="GLOBAL", message="No DB_URI set in environment variables. Some features may be disabled and issues may occur.")
 
+    # sync commands
     try:
         if guild_obj:
             await tree.sync(guild=guild_obj)
@@ -86,33 +91,23 @@ async def on_ready():
     for command in tree.get_commands(guild=guild_obj):
         log("GLOBAL", f"Registered command: /{command.name}")
 
-
+# welcome message
 @bot.event
 async def on_member_join(member: discord.Member):
-    # print(f"[JOIN] {member} joined {member.guild.name}")
     try:
         await send_welcome_message(member)
     except Exception as e:
         log(member.guild.id, f"Failed to send welcome card: {e}")
 
-    # # Example: send a welcome message to the server's system channel if available.
-    # if member.guild.system_channel:
-    #     await member.guild.system_channel.send(
-    #         f"Welcome {member.mention}!"
-    #     )
-
-
+# leave message
 @bot.event
 async def on_member_remove(member: discord.Member):
-    # print(f"[LEAVE] {member} left {member.guild.name}")
-    
-    # Example: send a farewell message to the server's system channel if available.
     if member.guild.system_channel:
         await member.guild.system_channel.send(
             f"*{member.mention} left the server.*"
         )
 
-
+# message responder
 @bot.event
 async def on_message(message: discord.Message):
     if message.author.bot:
@@ -121,16 +116,19 @@ async def on_message(message: discord.Message):
     await check_and_respond(message)
     await bot.process_commands(message)
 
-
-
-for filename in os.listdir("./commands"):
-    if filename.endswith(".py") and filename != "__init__.py":
-        module_name = f"commands.{filename[:-3]}"
-        module = importlib.import_module(module_name)
-        if hasattr(module, "setup"):
-            if guild_obj:
-                module.setup(tree, guild=discord.Object(id=mainguildid))
-            else:
-                module.setup(tree)
-
-bot.run(env("DISCORD_TOKEN"))
+# when the script is ran from the command line, load all commands from the commands folder and start the bot
+if __name__ == "__main__":
+    log("GLOBAL", f"Initializing commands...")
+    
+    for filename in os.listdir("./commands"):
+        if filename.endswith(".py") and filename != "__init__.py":
+            module_name = f"commands.{filename[:-3]}"
+            module = importlib.import_module(module_name)
+            if hasattr(module, "setup"):
+                if guild_obj:
+                    module.setup(tree, guild=discord.Object(id=mainguildid))
+                else:
+                    module.setup(tree)
+    
+    log("GLOBAL", f"Starting bot...")
+    bot.run(env("DISCORD_TOKEN"))

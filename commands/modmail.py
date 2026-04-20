@@ -13,7 +13,7 @@ dbEnabled = env("DB_URI", None) is not None
 
 if dbEnabled:
     mongo_client = MongoClient(env("DB_URI"))
-    db = mongo_client[env("DB_MAIN_COLLECTION_NAME", "Bot")]
+    db = mongo_client[env("DB_MAIN_COLLECTION_NAME", "bot")]
     server_settings_collection = db["server_settings"]
     modmail_tickets_collection = db["modmail_tickets"]
 
