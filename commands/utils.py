@@ -65,6 +65,9 @@ async def ping(interaction: discord.Interaction):
     # add the guilds counter if theres more than 1 guild
     if len(interaction.client.guilds) >= 1:
         embed.add_field(name="Guilds", value=str(len(interaction.client.guilds)), inline=True)
+        
+    if env("TESTING_ENABLED", "false").lower() == "true":
+        embed.set_footer(text="Test mode is enabled - results may be inaccurate to production environment")
 
     await interaction.response.send_message(embed=embed)
 

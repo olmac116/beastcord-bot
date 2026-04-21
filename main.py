@@ -124,9 +124,11 @@ if __name__ == "__main__":
     
     for filename in os.listdir("./commands"):
         if filename.endswith(".py") and filename != "__init__.py":
+            # exclude testing commands in production
             if not testing_enabled and filename.startswith("tests"):
                 continue
             
+            # exclude example commands
             if filename.startswith("example"):
                 continue
             
