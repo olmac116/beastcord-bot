@@ -27,6 +27,22 @@ RESET_SETTING_LABELS = {choice.value: choice.name for choice in RESET_SETTING_CH
 
 dbEnabled = env("DB_URI", None) is not None
 
+CHANNEL_PERMISSION_REQUIREMENTS = {
+    "autoResponderChannel": ("view_channel", "send_messages"),
+    "logsChannel": ("view_channel", "send_messages", "embed_links"),
+    "welcomeChannel": ("view_channel", "send_messages", "attach_files"),
+    "leaveChannel": ("view_channel", "send_messages"),
+    "modMailChannel": ("view_channel", "send_messages", "embed_links", "create_public_threads"),
+}
+
+PERMISSION_LABELS = {
+    "view_channel": "View Channel",
+    "send_messages": "Send Messages",
+    "embed_links": "Embed Links",
+    "attach_files": "Attach Files",
+    "create_public_threads": "Create Public Threads",
+}
+
 if dbEnabled:
     mongo_client = MongoClient(env("DB_URI"))
     db = mongo_client[env("DB_MAIN_COLLECTION_NAME", "bot")]
@@ -44,6 +60,48 @@ async def checkOwner(interaction: discord.Interaction):
 async def sendSaveError(response: discord.Message, error: str):
     await response.edit(content=None, embed=errorEmbed(title="Settings", description=f"We were unable to save your server settings.\n\nError: {str(error) or 'None'}"), view=None)
     return
+
+
+async def _get_bot_member(interaction: discord.Interaction):
+    if interaction.guild is None or interaction.client.user is None:
+        return None
+
+    bot_member = interaction.guild.get_member(interaction.client.user.id)
+    if bot_member is not None:
+        return bot_member
+
+    try:
+        return await interaction.guild.fetch_member(interaction.client.user.id)
+    except Exception:
+        return None
+
+
+async def _check_channel_permissions(interaction: discord.Interaction, channel: discord.TextChannel, setting_key: str):
+    bot_member = await _get_bot_member(interaction)
+    if bot_member is None:
+        return False, errorEmbed(
+            title="Settings",
+            description=f"I couldn't verify my permissions in {channel.mention} right now. Try again once the bot is fully available.",
+        )
+
+    required_permissions = CHANNEL_PERMISSION_REQUIREMENTS.get(setting_key, ("view_channel", "send_messages"))
+    permissions = channel.permissions_for(bot_member)
+    missing_permissions = [
+        PERMISSION_LABELS.get(permission, permission.replace("_", " ").title())
+        for permission in required_permissions
+        if not getattr(permissions, permission, False)
+    ]
+
+    if missing_permissions:
+        return False, errorEmbed(
+            title="Settings",
+            description=(
+                f"The bot doesn't have permission to use {channel.mention}.\n\n"
+                f"Missing permissions: {', '.join(missing_permissions)}"
+            ),
+        )
+
+    return True, None
 
 
 async def processInteraction(response: discord.Message, view: View):
@@ -184,6 +242,11 @@ async def set_auto_responder_channel(interaction: discord.Interaction, channel: 
 
         if readyToSave:
 
+            can_use_channel, channel_error = await _check_channel_permissions(interaction=interaction, channel=channel, setting_key="autoResponderChannel")
+            if not can_use_channel:
+                await response.edit(content=None, embed=channel_error, view=None)
+                return
+
             # attempt to update
             success, error = await updateSettings(guildId=interaction.guild_id, key="autoResponderChannel", data=int(channel.id))
 
@@ -211,6 +274,11 @@ async def set_logs_channel(interaction: discord.Interaction, channel: discord.Te
         readyToSave = await processInteraction(response=response, view=view)
 
         if readyToSave:
+
+            can_use_channel, channel_error = await _check_channel_permissions(interaction=interaction, channel=channel, setting_key="logsChannel")
+            if not can_use_channel:
+                await response.edit(content=None, embed=channel_error, view=None)
+                return
 
             # attempt to update
             success, error = await updateSettings(guildId=interaction.guild_id, key="logsChannel", data=int(channel.id))
@@ -240,6 +308,11 @@ async def set_welcome_channel(interaction: discord.Interaction, channel: discord
 
         if readyToSave:
 
+            can_use_channel, channel_error = await _check_channel_permissions(interaction=interaction, channel=channel, setting_key="welcomeChannel")
+            if not can_use_channel:
+                await response.edit(content=None, embed=channel_error, view=None)
+                return
+
             # attempt to update
             success, error = await updateSettings(guildId=interaction.guild_id, key="welcomeChannel", data=int(channel.id))
 
@@ -268,6 +341,11 @@ async def set_leave_channel(interaction: discord.Interaction, channel: discord.T
 
         if readyToSave:
 
+            can_use_channel, channel_error = await _check_channel_permissions(interaction=interaction, channel=channel, setting_key="leaveChannel")
+            if not can_use_channel:
+                await response.edit(content=None, embed=channel_error, view=None)
+                return
+
             # attempt to update
             success, error = await updateSettings(guildId=interaction.guild_id, key="leaveChannel", data=int(channel.id))
 
@@ -295,6 +373,11 @@ async def set_mod_mail_channel(interaction: discord.Interaction, channel: discor
         readyToSave = await processInteraction(response=response, view=view)
 
         if readyToSave:
+
+            can_use_channel, channel_error = await _check_channel_permissions(interaction=interaction, channel=channel, setting_key="modMailChannel")
+            if not can_use_channel:
+                await response.edit(content=None, embed=channel_error, view=None)
+                return
 
             # attempt to update
             success, error = await updateSettings(guildId=interaction.guild_id, key="modMailChannel", data=int(channel.id))

@@ -71,7 +71,12 @@ async def log_message(guild_id: int, client: discord.Client, message: str, log_t
             description=message,
             color=discord.Color.blue(),
         )
-        await channel.send(embed=embed)
+        try:
+            await channel.send(embed=embed)
+        except discord.Forbidden:
+            logger.warning("Missing permission to send log message in channel %s for guild %s", channel.id, guild_id)
+        except discord.HTTPException:
+            logger.exception("Failed to send log message in channel %s for guild %s", channel.id, guild_id)
 
 
 async def _persist_log(guild_id: int | str, message: str):

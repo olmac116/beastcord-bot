@@ -353,7 +353,26 @@ async def modmail(
     else:
         ticket_embed.add_field(name="Submitted By", value=interaction.user.mention, inline=False)
 
-    posted_message = await modmail_channel.send(embed=ticket_embed)
+    try:
+        posted_message = await modmail_channel.send(embed=ticket_embed)
+    except discord.Forbidden:
+        await interaction.response.send_message(
+            embed=errorEmbed(
+                title="Modmail",
+                description=f"I don't have permission to send messages in {modmail_channel.mention}. Ask an admin to choose a different modmail channel with `/settings mod-mail`.",
+            ),
+            ephemeral=True,
+        )
+        return
+    except discord.HTTPException as error:
+        await interaction.response.send_message(
+            embed=errorEmbed(
+                title="Modmail",
+                description=f"I couldn't post the modmail ticket in {modmail_channel.mention}. Error: {error}",
+            ),
+            ephemeral=True,
+        )
+        return
 
     thread_name = f"modmail-{secrets.token_hex(4)}"
     create_reason = (
@@ -385,7 +404,12 @@ async def modmail(
         upsert=True,
     )
 
-    await thread.send("Moderator thread opened. Use `!close` to close this ticket.")
+    try:
+        await thread.send("Moderator thread opened. Use `!close` to close this ticket.")
+    except discord.Forbidden:
+        pass
+    except discord.HTTPException:
+        pass
 
     response_text = "Your modmail has been sent to the moderator team."
     if allow_replies:

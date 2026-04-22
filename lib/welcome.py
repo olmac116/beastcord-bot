@@ -5,6 +5,7 @@ import aiohttp
 import discord
 from PIL import Image, ImageDraw, ImageFont, ImageOps
 
+from lib.logging import log
 from lib.settingsLib import getSettings
 
 WELCOME_BG_LOCAL_PATH = "static/images/welcome.png"
@@ -152,5 +153,12 @@ async def send_welcome_message(member: discord.Member):
         return False
 
     welcome_file = await generate_welcome_image(member)
-    await channel.send(content=f"Welcome to {member.guild.name}, {member.mention}!", file=welcome_file)
-    return True
+    try:
+        await channel.send(content=f"Welcome to {member.guild.name}, {member.mention}!", file=welcome_file)
+        return True
+    except discord.Forbidden:
+        log(member.guild.id, f"Missing permission to send welcome message in channel {channel.id}")
+        return False
+    except discord.HTTPException as error:
+        log(member.guild.id, f"Failed to send welcome message in channel {channel.id}: {error}")
+        return False

@@ -75,7 +75,22 @@ async def check_and_respond(message: discord.Message) -> bool:
         if not pattern.search(content):
             continue
 
-        await message.reply(_render_response(response_template, message), mention_author=False)
-        return True
+        try:
+            await message.reply(_render_response(response_template, message), mention_author=False)
+            return True
+        except discord.Forbidden:
+            logger.warning(
+                "Missing permission to reply in channel %s for guild %s",
+                message.channel.id,
+                guild.id,
+            )
+            return False
+        except discord.HTTPException:
+            logger.exception(
+                "Failed to send auto-response in channel %s for guild %s",
+                message.channel.id,
+                guild.id,
+            )
+            return False
 
     return False

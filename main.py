@@ -103,9 +103,14 @@ async def on_member_join(member: discord.Member):
 @bot.event
 async def on_member_remove(member: discord.Member):
     if member.guild.system_channel:
-        await member.guild.system_channel.send(
-            f"*{member.mention} left the server.*"
-        )
+        try:
+            await member.guild.system_channel.send(
+                f"*{member.mention} left the server.*"
+            )
+        except discord.Forbidden:
+            log(member.guild.id, f"Missing permission to send leave message in system channel {member.guild.system_channel.id}")
+        except discord.HTTPException as error:
+            log(member.guild.id, f"Failed to send leave message in system channel {member.guild.system_channel.id}: {error}")
 
 # message responder
 @bot.event
