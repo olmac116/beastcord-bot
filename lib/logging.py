@@ -103,7 +103,8 @@ def log(guild_id: int | str, message: str):
     try:
         loop = asyncio.get_running_loop()
     except RuntimeError:
-        _persist_log_sync(guild_id, message)
+        # startup code can run before asyncio is initialized
+        # skip db persistence here to avoid blocking sync writes and noisy connection errors
         return
 
     loop.create_task(_persist_log(guild_id, message))

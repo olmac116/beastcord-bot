@@ -1,4 +1,5 @@
 import os
+import re
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -25,12 +26,20 @@ def _coerce_value(value: str):
     return value
 
 
+def _normalize_mongo_uri(value: str):
+    # In Docker networks, service-to-service traffic uses the target container port,
+    # so the mongo service should always be reached on 27017.
+    return re.sub(r"^(mongodb(?:\+srv)?://mongo:)(\d+)", r"\g<1>27017", value)
+
+
 def env(var_name,fallback_var=""):
     lookup_names = (var_name,) + _ALIASES.get(var_name, ())
 
     for lookup_name in lookup_names:
         var = os.getenv(lookup_name)
         if var:
+            if lookup_name in ("DB_URI", "MONGO_URI") and isinstance(var, str):
+                var = _normalize_mongo_uri(var)
             return _coerce_value(var)
 
     return fallback_var
