@@ -7,4 +7,4 @@
 - Mod mail system
 - Highly configurable
 
-<small>Made for the BEASTCORD Discord server!</small>
+<small>Made for the BEASTCORD Discord server</small>
