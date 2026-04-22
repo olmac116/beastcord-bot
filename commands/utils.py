@@ -63,7 +63,7 @@ async def ping(interaction: discord.Interaction):
     embed.add_field(name="Uptime", value=uptime, inline=False)
     
     # add the guilds counter if theres more than 1 guild
-    if len(interaction.client.guilds) >= 1:
+    if len(interaction.client.guilds) > 1:
         embed.add_field(name="Guilds", value=str(len(interaction.client.guilds)), inline=True)
         
     if env("TESTING_ENABLED", "false").lower() == "true":
