@@ -11,5 +11,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY main.py ./main.py
 COPY commands ./commands
 COPY lib ./lib
+COPY static ./static
+COPY fonts ./fonts
 
 CMD ["python", "main.py"]
