@@ -28,9 +28,13 @@ services:
       - path: .env
         required: false
     environment:
+      DISCORD_TOKEN: ${DISCORD_TOKEN}
+      MAIN_GUILD_ID: ${MAIN_GUILD_ID}
+      OWNER_ID: ${OWNER_ID:-0}
       MONGO_URI: ${MONGO_URI:-mongodb://mongo:27017/beastcord}
+      MONGO_PORT: ${MONGO_PORT:-27017}
       MONGO_DB_NAME: ${MONGO_DB_NAME:-beastcord}
-      BOT_PREFIX: ${BOT_PREFIX:-!}
+      TESTING: ${TESTING:-false}
     volumes:
       - ./:/app
 
