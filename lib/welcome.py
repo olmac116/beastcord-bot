@@ -56,7 +56,7 @@ def _draw_centered_text(
         text,
         font=font,
         fill=fill,
-        stroke_width=6,
+        stroke_width=4,
         stroke_fill=(0, 0, 0, 230),
     )
 
@@ -124,8 +124,8 @@ async def generate_welcome_image(member: discord.Member):
     username_base_font = _load_font(54, bold=True)
     subtitle_base_font = _load_font(34, bold=True)
 
-    username_text = _truncate_for_width(draw, member.name, username_base_font, max_width=640)
-    subtitle_text = _truncate_for_width(draw, f"Welcome to {member.guild.name}", subtitle_base_font, max_width=640)
+    username_text = _truncate_for_width(draw, member.display_name, username_base_font, max_width=640)
+    subtitle_text = _truncate_for_width(draw, f"Welcome to {member.guild.name}!", subtitle_base_font, max_width=640)
 
     username_font = _fit_bold_font(draw, username_text, start_size=54, min_size=30, max_width=640)
     subtitle_font = _fit_bold_font(draw, subtitle_text, start_size=34, min_size=20, max_width=640)
