@@ -7,6 +7,7 @@ import os
 from lib.logging import log
 from lib.envLoader import env
 from lib.messageResponder import check_and_respond
+from lib.settingsLib import getSettings
 from lib.welcome import send_welcome_message
 
 intents = discord.Intents.all()
@@ -102,15 +103,26 @@ async def on_member_join(member: discord.Member):
 # leave message
 @bot.event
 async def on_member_remove(member: discord.Member):
-    if member.guild.system_channel:
-        try:
-            await member.guild.system_channel.send(
-                f"*{member.mention} left the server.*"
-            )
-        except discord.Forbidden:
-            log(member.guild.id, f"Missing permission to send leave message in system channel {member.guild.system_channel.id}")
-        except discord.HTTPException as error:
-            log(member.guild.id, f"Failed to send leave message in system channel {member.guild.system_channel.id}: {error}")
+    success, saved_settings = await getSettings(member.guild.id)
+    if not success:
+        log(member.guild.id, "Failed to load settings while sending leave message")
+        return
+
+    leave_channel_id = saved_settings.get("leaveChannel") if saved_settings else None
+    if not leave_channel_id:
+        return
+
+    channel = member.guild.get_channel(int(leave_channel_id))
+    if channel is None:
+        log(member.guild.id, f"Configured leave channel {leave_channel_id} was not found")
+        return
+
+    try:
+        await channel.send(f"*{member.mention} left the server.*")
+    except discord.Forbidden:
+        log(member.guild.id, f"Missing permission to send leave message in channel {channel.id}")
+    except discord.HTTPException as error:
+        log(member.guild.id, f"Failed to send leave message in channel {channel.id}: {error}")
 
 # message responder
 @bot.event
